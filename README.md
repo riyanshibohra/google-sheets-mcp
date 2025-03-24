@@ -6,4 +6,4 @@ APIs to be used:
 - OpenAI API
 - Tavily API
 
-
+Adding MCP
