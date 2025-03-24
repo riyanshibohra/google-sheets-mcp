@@ -7,3 +7,4 @@ APIs to be used:
 - Tavily API
 
 Adding MCP to the project:
+
