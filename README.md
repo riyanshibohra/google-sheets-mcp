@@ -1,4 +1,4 @@
-# Temp-name
+# MCP Server
 
 APIs to be used: 
 - Slack API
