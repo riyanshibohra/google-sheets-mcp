@@ -1,11 +1,8 @@
 import pandas as pd
 from typing import Dict, Any
 
-def add_data(df_json: str, row_data: Dict[str, Any]) -> str:
+def add_data(df: pd.DataFrame, row_data: Dict[str, Any]) -> pd.DataFrame:
     """Add a new row to the dataset"""
-    # Convert JSON string to DataFrame
-    df = pd.read_json(df_json, orient='split')
-    
     # Validate that all columns exist
     if not all(col in df.columns for col in row_data.keys()):
         invalid_cols = [col for col in row_data.keys() if col not in df.columns]
@@ -13,16 +10,10 @@ def add_data(df_json: str, row_data: Dict[str, Any]) -> str:
     
     # Add new row using concat
     new_df = pd.DataFrame([row_data])
-    df = pd.concat([df, new_df], ignore_index=True)
-    
-    # Return updated DataFrame as JSON
-    return df.to_json(orient='split')
+    return pd.concat([df, new_df], ignore_index=True)
 
-def edit_data(df_json: str, row_identifier: Dict[str, Any], updated_data: Dict[str, Any]) -> str:
+def edit_data(df: pd.DataFrame, row_identifier: Dict[str, Any], updated_data: Dict[str, Any]) -> pd.DataFrame:
     """Edit an existing row"""
-    # Convert JSON string to DataFrame
-    df = pd.read_json(df_json, orient='split')
-    
     # Validate columns
     if not all(col in df.columns for col in row_identifier.keys()):
         invalid_cols = [col for col in row_identifier.keys() if col not in df.columns]
@@ -42,17 +33,14 @@ def edit_data(df_json: str, row_identifier: Dict[str, Any], updated_data: Dict[s
         raise ValueError(f"No row found matching identifier: {row_identifier}")
     
     # Update data
+    df_copy = df.copy()
     for field, value in updated_data.items():
-        df.loc[mask, field] = value
+        df_copy.loc[mask, field] = value
     
-    # Return updated DataFrame as JSON
-    return df.to_json(orient='split')
+    return df_copy
 
-def delete_data(df_json: str, row_identifier: Dict[str, Any]) -> str:
+def delete_data(df: pd.DataFrame, row_identifier: Dict[str, Any]) -> pd.DataFrame:
     """Delete a row"""
-    # Convert JSON string to DataFrame
-    df = pd.read_json(df_json, orient='split')
-    
     # Validate columns
     if not all(col in df.columns for col in row_identifier.keys()):
         invalid_cols = [col for col in row_identifier.keys() if col not in df.columns]
@@ -68,7 +56,4 @@ def delete_data(df_json: str, row_identifier: Dict[str, Any]) -> str:
         raise ValueError(f"No row found matching identifier: {row_identifier}")
     
     # Delete row
-    df = df[~mask]
-    
-    # Return updated DataFrame as JSON
-    return df.to_json(orient='split') 
+    return df[~mask].copy() 
