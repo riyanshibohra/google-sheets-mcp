@@ -8,7 +8,9 @@ from typing import Dict, List, Any
 
 mcp = FastMCP("SheetCraft")
 
-# Tool 1: Fetch Google Sheet data
+# ----------------------------- Sheet Access Tools ----------------------------- 
+
+## Tool 1: Fetch Google Sheet data
 @mcp.tool()
 def fetch_google_sheet(sheet_url: str, tab_name: str) -> str:
     """
@@ -21,7 +23,23 @@ def fetch_google_sheet(sheet_url: str, tab_name: str) -> str:
     """
     return fetch_sheet(sheet_url, tab_name)
 
-# Tool 2: Add new data
+## Tool 2: Update Google Sheet
+@mcp.tool()
+def update_google_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool:
+    """
+    Update the Google Sheet with modified data
+    Args:
+        sheet_url: URL of the Google Sheet
+        tab_name: Name of the worksheet to update
+        df_json: Modified dataset in JSON format
+    Returns:
+        True if update was successful
+    """
+    return update_sheet(sheet_url, tab_name, df_json)
+
+# ----------------------------- Row Operation Tools ----------------------------- 
+
+## Tool 3: Add new row
 @mcp.tool()
 def add_row(df_json: str, row_data: Dict[str, Any]) -> str:
     """
@@ -34,7 +52,7 @@ def add_row(df_json: str, row_data: Dict[str, Any]) -> str:
     """
     return add_data(df_json, row_data)
 
-# Tool 3: Edit data
+## Tool 4: Edit row
 @mcp.tool()
 def edit_row(df_json: str, row_identifier: Dict[str, Any], updated_data: Dict[str, Any]) -> str:
     """
@@ -48,7 +66,7 @@ def edit_row(df_json: str, row_identifier: Dict[str, Any], updated_data: Dict[st
     """
     return edit_data(df_json, row_identifier, updated_data)
 
-# Tool 4: Delete data
+## Tool 5: Delete row
 @mcp.tool()
 def delete_row(df_json: str, row_identifier: Dict[str, Any]) -> str:
     """
@@ -61,7 +79,10 @@ def delete_row(df_json: str, row_identifier: Dict[str, Any]) -> str:
     """
     return delete_data(df_json, row_identifier)
 
-# Tool 5: Add new column
+
+# ----------------------------- Column Operation Tools ----------------------------- 
+
+## Tool 6: Add new column
 @mcp.tool()
 def add_sheet_column(df_json: str, new_column_name: str, formula: str, reference_columns: List[str]) -> str:
     """
@@ -104,20 +125,6 @@ def transform_sheet_column(df_json: str, column_name: str, transformation: str, 
         Updated dataset in JSON format
     """
     return transform_column(df_json, column_name, transformation, params)
-
-# Tool 8: Update Google Sheet
-@mcp.tool()
-def update_google_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool:
-    """
-    Update the Google Sheet with modified data
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet to update
-        df_json: Modified dataset in JSON format
-    Returns:
-        True if update was successful
-    """
-    return update_sheet(sheet_url, tab_name, df_json)
 
 if __name__ == "__main__":
     mcp.run()
