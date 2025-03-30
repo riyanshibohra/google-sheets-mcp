@@ -52,5 +52,3 @@ def update_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool:
     worksheet.update('A1', all_values)
         
     return True
-
-
