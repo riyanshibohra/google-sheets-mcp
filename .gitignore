@@ -3,4 +3,5 @@ myvenv/
 
 credentials.json
 
+__pycache__/
 
