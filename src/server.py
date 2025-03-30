@@ -6,8 +6,22 @@ from tools.data_operations import add_data, edit_data, delete_data
 from tools.column_operations import add_column, rename_column, transform_column
 from typing import Dict, List, Any
 import pandas as pd
+import json
 
 mcp = FastMCP("SheetCraft")
+
+def encode_dataframe(df: pd.DataFrame) -> str:
+    """Helper function to encode DataFrame to JSON string"""
+    return json.dumps(json.loads(df.to_json(orient='split')))
+
+def decode_json(json_str: str) -> pd.DataFrame:
+    """Helper function to decode JSON string to DataFrame"""
+    if isinstance(json_str, str):
+        # Remove any escaped quotes and backslashes
+        json_str = json_str.replace('\\"', '"').replace('\\\\', '\\')
+        if json_str.startswith('"') and json_str.endswith('"'):
+            json_str = json_str[1:-1]
+    return pd.read_json(json_str, orient='split')
 
 # ----------------------------- Sheet Access Tools ----------------------------- 
 
@@ -23,7 +37,7 @@ def fetch_google_sheet(sheet_url: str, tab_name: str) -> str:
         JSON string of the sheet data
     """
     df = fetch_sheet(sheet_url, tab_name)
-    return df.to_json(orient='split')
+    return encode_dataframe(df)
 
 ## Tool 2: Update Google Sheet
 @mcp.tool()
@@ -37,7 +51,7 @@ def update_google_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool:
     Returns:
         True if update was successful
     """
-    df = pd.read_json(df_json, orient='split')
+    df = decode_json(df_json)
     return update_sheet(sheet_url, tab_name, df)
 
 # ----------------------------- Row Operation Tools ----------------------------- 
@@ -53,9 +67,9 @@ def add_row(df_json: str, row_data: Dict[str, Any]) -> str:
     Returns:
         Updated dataset in JSON format
     """
-    df = pd.read_json(df_json, orient='split')
+    df = decode_json(df_json)
     updated_df = add_data(df, row_data)
-    return updated_df.to_json(orient='split')
+    return encode_dataframe(updated_df)
 
 ## Tool 4: Edit row
 @mcp.tool()
@@ -69,9 +83,9 @@ def edit_row(df_json: str, row_identifier: Dict[str, Any], updated_data: Dict[st
     Returns:
         Updated dataset in JSON format
     """
-    df = pd.read_json(df_json, orient='split')
+    df = decode_json(df_json)
     updated_df = edit_data(df, row_identifier, updated_data)
-    return updated_df.to_json(orient='split')
+    return encode_dataframe(updated_df)
 
 ## Tool 5: Delete row
 @mcp.tool()
@@ -84,9 +98,9 @@ def delete_row(df_json: str, row_identifier: Dict[str, Any]) -> str:
     Returns:
         Updated dataset in JSON format
     """
-    df = pd.read_json(df_json, orient='split')
+    df = decode_json(df_json)
     updated_df = delete_data(df, row_identifier)
-    return updated_df.to_json(orient='split')
+    return encode_dataframe(updated_df)
 
 # ----------------------------- Column Operation Tools ----------------------------- 
 
@@ -103,9 +117,9 @@ def add_sheet_column(df_json: str, new_column_name: str, formula: str, reference
     Returns:
         Updated dataset in JSON format
     """
-    df = pd.read_json(df_json, orient='split')
+    df = decode_json(df_json)
     updated_df = add_column(df, new_column_name, formula, reference_columns)
-    return updated_df.to_json(orient='split')
+    return encode_dataframe(updated_df)
 
 ## Tool 7: Rename column
 @mcp.tool()
@@ -119,9 +133,9 @@ def rename_sheet_column(df_json: str, old_name: str, new_name: str) -> str:
     Returns:
         Updated dataset in JSON format
     """
-    df = pd.read_json(df_json, orient='split')
+    df = decode_json(df_json)
     updated_df = rename_column(df, old_name, new_name)
-    return updated_df.to_json(orient='split')
+    return encode_dataframe(updated_df)
 
 ## Tool 8: Transform column
 @mcp.tool()
@@ -136,9 +150,9 @@ def transform_sheet_column(df_json: str, column_name: str, transformation: str, 
     Returns:
         Updated dataset in JSON format
     """
-    df = pd.read_json(df_json, orient='split')
+    df = decode_json(df_json)
     updated_df = transform_column(df, column_name, transformation, params)
-    return updated_df.to_json(orient='split')
+    return encode_dataframe(updated_df)
 
 if __name__ == "__main__":
     mcp.run()
