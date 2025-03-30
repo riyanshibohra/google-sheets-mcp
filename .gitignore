@@ -1,4 +1,6 @@
 myvenv/
 .env
 
+credentials.json
+
 
