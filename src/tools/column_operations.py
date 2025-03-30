@@ -81,8 +81,10 @@ def transform_column(df: pd.DataFrame, column_name: str, transformation: str, pa
     Args:
         df: Input DataFrame
         column_name: Name of the column to transform
-        transformation: Type of transformation ('uppercase', 'lowercase', 'round', 'format_date')
+        transformation: Type of transformation ('uppercase', 'lowercase', 'round', 'format_date', 'title_case')
         params: Additional parameters for the transformation
+            - split_on: str, character to split on for partial title case (default: None)
+            - part_index: int, which part to transform after splitting (default: -1)
     """
     df_copy = df.copy()
     params = params or {}
@@ -94,6 +96,22 @@ def transform_column(df: pd.DataFrame, column_name: str, transformation: str, pa
         df_copy[column_name] = df_copy[column_name].astype(str).str.upper()
     elif transformation == 'lowercase':
         df_copy[column_name] = df_copy[column_name].astype(str).str.lower()
+    elif transformation == 'title_case':
+        split_on = params.get('split_on', None)
+        part_index = params.get('part_index', -1)
+        
+        if split_on:
+            # Split the string and transform only the specified part
+            def title_case_part(text):
+                parts = text.split(split_on)
+                if 0 <= part_index < len(parts):
+                    parts[part_index] = parts[part_index].strip().title()
+                return split_on.join(parts)
+            df_copy[column_name] = df_copy[column_name].astype(str).apply(title_case_part)
+        else:
+            # Transform the entire string
+            df_copy[column_name] = df_copy[column_name].astype(str).str.title()
+            
     elif transformation == 'round':
         decimals = params.get('decimals', 0)
         df_copy[column_name] = df_copy[column_name].round(decimals)
