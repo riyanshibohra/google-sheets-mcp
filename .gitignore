@@ -4,4 +4,3 @@ myvenv/
 credentials.json
 
 __pycache__/
-tools/__pycache__/
