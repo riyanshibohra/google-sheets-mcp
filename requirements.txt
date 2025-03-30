@@ -1,9 +1,6 @@
-langgraph
-langgraph-sdk
-langgraph-checkpoint-sqlite
-langsmith
-langchain-community
-langchain-core
-langchain-openai
-langgraph-cli
-notebook
+mcp
+fastapi
+uvicorn
+pandas
+gspread
+google-auth
