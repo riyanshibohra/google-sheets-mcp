@@ -79,7 +79,6 @@ def delete_row(df_json: str, row_identifier: Dict[str, Any]) -> str:
     """
     return delete_data(df_json, row_identifier)
 
-
 # ----------------------------- Column Operation Tools ----------------------------- 
 
 ## Tool 6: Add new column
@@ -97,7 +96,7 @@ def add_sheet_column(df_json: str, new_column_name: str, formula: str, reference
     """
     return add_column(df_json, new_column_name, formula, reference_columns)
 
-# Tool 6: Rename column
+## Tool 7: Rename column
 @mcp.tool()
 def rename_sheet_column(df_json: str, old_name: str, new_name: str) -> str:
     """
@@ -111,7 +110,7 @@ def rename_sheet_column(df_json: str, old_name: str, new_name: str) -> str:
     """
     return rename_column(df_json, old_name, new_name)
 
-# Tool 7: Transform column
+## Tool 8: Transform column
 @mcp.tool()
 def transform_sheet_column(df_json: str, column_name: str, transformation: str, params: Dict = None) -> str:
     """
