@@ -2,7 +2,7 @@ import pandas as pd
 from typing import Dict, List, Any, Union
 import numpy as np
 
-def add_column(df: pd.DataFrame, new_column_name: str, formula: str, reference_columns: List[str]) -> pd.DataFrame:
+def add_column(df: pd.DataFrame, new_column_name: str, formula: str, reference_columns: List[str], params: Dict = None) -> pd.DataFrame:
     """
     Add a new column based on calculations from other columns
     Args:
@@ -10,8 +10,14 @@ def add_column(df: pd.DataFrame, new_column_name: str, formula: str, reference_c
         new_column_name: Name of the new column
         formula: Type of operation to perform ('concat', 'sum', 'multiply', 'divide', 'subtract')
         reference_columns: List of columns to use in the calculation
+        params: Additional parameters for string operations
+            - separator: str, separator for concat operation (default: ' ')
+            - prefix: str, text to add before the concatenation
+            - suffix: str, text to add after the concatenation
+            - format_string: str, Python format string for advanced formatting
     """
     df_copy = df.copy()
+    params = params or {}
     
     # Validate reference columns exist
     if not all(col in df_copy.columns for col in reference_columns):
@@ -24,7 +30,23 @@ def add_column(df: pd.DataFrame, new_column_name: str, formula: str, reference_c
     
     # Apply the formula
     if formula == 'concat':
-        df_copy[new_column_name] = df_copy[reference_columns].astype(str).agg(' '.join, axis=1)
+        separator = str(params.get('separator', ' '))  # Ensure separator is a string
+        prefix = str(params.get('prefix', ''))
+        suffix = str(params.get('suffix', ''))
+        format_string = params.get('format_string', None)
+        
+        if format_string:
+            # Use Python string formatting if format_string is provided
+            df_copy[new_column_name] = df_copy[reference_columns].apply(
+                lambda row: format_string.format(*[str(val) for val in row]), axis=1
+            )
+        else:
+            # Convert all values to string and join with separator
+            values = df_copy[reference_columns].astype(str).apply(
+                lambda row: separator.join(row.values.astype(str)), axis=1
+            )
+            df_copy[new_column_name] = prefix + values + suffix
+            
     elif formula == 'sum':
         df_copy[new_column_name] = df_copy[reference_columns].sum(axis=1)
     elif formula == 'multiply':
