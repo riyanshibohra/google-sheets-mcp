@@ -107,7 +107,7 @@ def delete_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any]) ->
 
 ## Tool 6: Add new column
 @mcp.tool()
-def add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formula: str, reference_columns: List[str]) -> bool:
+def add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formula: str, reference_columns: List[str], params: Dict = None) -> bool:
     """
     Add a new column based on calculations from other columns
     Args:
@@ -116,11 +116,16 @@ def add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formul
         new_column_name: Name for the new column
         formula: Type of operation ('concat', 'sum', 'multiply', 'divide', 'subtract')
         reference_columns: List of columns to use in the calculation
+        params: Additional parameters for string operations
+            - separator: str, separator for concat operation (default: ' ')
+            - prefix: str, text to add before the concatenation
+            - suffix: str, text to add after the concatenation
+            - format_string: str, Python format string for advanced formatting
     Returns:
         True if update was successful
     """
     df = fetch_sheet(sheet_url, tab_name)
-    updated_df = add_column(df, new_column_name, formula, reference_columns)
+    updated_df = add_column(df, new_column_name, formula, reference_columns, params)
     return update_sheet(sheet_url, tab_name, updated_df)
 
 ## Tool 7: Rename column
