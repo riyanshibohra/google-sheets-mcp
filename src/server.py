@@ -1,103 +1,197 @@
 # src/datacraft/server.py
 
-from mcp.server.fastmcp import FastMCP
-from tools.fetch_sheet import fetch_sheet, update_sheet
-from tools.data_operations import add_data, edit_data, delete_data
-from tools.column_operations import add_column, rename_column, transform_column
-from typing import Dict, List, Any
-import pandas as pd
+import os
+import json
+from typing import Optional, Dict, List, Any
+from pathlib import Path
 
-mcp = FastMCP("SheetCraft")
+import gspread
+from fastapi import FastAPI, HTTPException
+from google.oauth2.service_account import Credentials
+from google.oauth2.credentials import Credentials as OAuthCredentials
+from pydantic import BaseModel
+from mcp import MCPRouter, MCPRequest
 
-def decode_json(json_str: str) -> pd.DataFrame:
-    """Convert JSON string to DataFrame, handling common encoding issues."""
-    try:
-        return pd.read_json(json_str, orient='split')
-    except:
-        if isinstance(json_str, str):
-            json_str = json_str.replace('\\"', '"').replace('\\\\', '\\')
-            if json_str.startswith('"') and json_str.endswith('"'):
-                json_str = json_str[1:-1]
-        return pd.read_json(json_str, orient='split')
+# Initialize FastAPI app
+app = FastAPI()
+router = MCPRouter()
 
-# ----------------------------- Sheet Access Tools ----------------------------- 
+# Constants
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
 
-## Tool 1: Fetch Google Sheet data
-@mcp.tool()
-def fetch_google_sheet(sheet_url: str, tab_name: str) -> str:
+class GoogleSheetsClient:
+    def __init__(self):
+        self.client = None
+        self.folder_id = os.getenv('DRIVE_FOLDER_ID')
+        
+    async def initialize(self):
+        """Initialize the Google Sheets client with appropriate credentials."""
+        if self.client:
+            return
+
+        # Try service account first
+        service_account_path = os.getenv('SERVICE_ACCOUNT_PATH')
+        if service_account_path and Path(service_account_path).exists():
+            credentials = Credentials.from_service_account_file(
+                service_account_path,
+                scopes=SCOPES
+            )
+            self.client = gspread.authorize(credentials)
+            return
+
+        # Fall back to OAuth
+        credentials_path = os.getenv('CREDENTIALS_PATH', 'credentials.json')
+        token_path = os.getenv('TOKEN_PATH', 'token.json')
+        
+        if not Path(credentials_path).exists():
+            raise HTTPException(status_code=500, detail="No credentials found")
+            
+        if Path(token_path).exists():
+            with open(token_path) as token:
+                credentials = OAuthCredentials.from_authorized_user_info(
+                    json.load(token),
+                    SCOPES
+                )
+        else:
+            # Handle OAuth flow
+            from google_auth_oauthlib.flow import InstalledAppFlow
+            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
+            credentials = flow.run_local_server(port=0)
+            
+            # Save the credentials
+            with open(token_path, 'w') as token:
+                token.write(credentials.to_json())
+
+        self.client = gspread.authorize(credentials)
+
+# Initialize global client
+sheets_client = GoogleSheetsClient()
+
+@router.on_startup
+async def startup():
+    """Initialize the Google Sheets client on startup."""
+    await sheets_client.initialize()
+
+@router.function("fetch_google_sheet")
+async def fetch_google_sheet(request: MCPRequest) -> Dict[str, Any]:
     """Fetch data from a Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    return df.to_json(orient='split')
-
-## Tool 2: Update Google Sheet
-@mcp.tool()
-def update_google_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool:
-    """Update a Google Sheet with modified data."""
-    df = decode_json(df_json)
-    return update_sheet(sheet_url, tab_name, df)
-
-# ----------------------------- Row Operation Tools ----------------------------- 
-
-## Tool 3: Add new row
-@mcp.tool()
-def add_row(sheet_url: str, tab_name: str, row_data: Dict[str, Any]) -> bool:
-    """Add a new row to the Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = add_data(df, row_data)
-    return update_sheet(sheet_url, tab_name, updated_df)
-
-## Tool 4: Edit row
-@mcp.tool()
-def edit_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any], updated_data: Dict[str, Any]) -> bool:
-    """Edit an existing row in the Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = edit_data(df, row_identifier, updated_data)
-    return update_sheet(sheet_url, tab_name, updated_df)
-
-## Tool 5: Delete row
-@mcp.tool()
-def delete_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any]) -> bool:
-    """Delete a row from the Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = delete_data(df, row_identifier)
-    return update_sheet(sheet_url, tab_name, updated_df)
-
-# ----------------------------- Column Operation Tools ----------------------------- 
-
-## Tool 6: Add new column
-@mcp.tool()
-def add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formula: str, 
-                    reference_columns: List[str], params: Dict = None) -> bool:
-    """Add a new calculated column to the Google Sheet.
+    sheet_url = request.arguments.get("sheet_url")
+    tab_name = request.arguments.get("tab_name")
     
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet
-        new_column_name: Name for the new column
-        formula: Operation type ('concat', 'sum', 'multiply', 'divide', 'subtract')
-        reference_columns: Columns to use in calculation
-        params: Optional parameters for string operations
-    """
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = add_column(df, new_column_name, formula, reference_columns, params)
-    return update_sheet(sheet_url, tab_name, updated_df)
+    try:
+        # Open the spreadsheet
+        spreadsheet = sheets_client.client.open_by_url(sheet_url)
+        worksheet = spreadsheet.worksheet(tab_name)
+        
+        # Get all values
+        data = worksheet.get_all_records()
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
-## Tool 7: Rename column
-@mcp.tool()
-def rename_sheet_column(sheet_url: str, tab_name: str, old_name: str, new_name: str) -> bool:
-    """Rename a column in the Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = rename_column(df, old_name, new_name)
-    return update_sheet(sheet_url, tab_name, updated_df)
+@router.function("update_google_sheet")
+async def update_google_sheet(request: MCPRequest) -> Dict[str, Any]:
+    """Update data in a Google Sheet."""
+    sheet_url = request.arguments.get("sheet_url")
+    tab_name = request.arguments.get("tab_name")
+    df_json = request.arguments.get("df_json")
+    
+    try:
+        # Parse the JSON data
+        data = json.loads(df_json)
+        
+        # Open the spreadsheet
+        spreadsheet = sheets_client.client.open_by_url(sheet_url)
+        worksheet = spreadsheet.worksheet(tab_name)
+        
+        # Clear existing data and update
+        worksheet.clear()
+        if data:
+            worksheet.update([list(data[0].keys())] + [list(row.values()) for row in data])
+        
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
-## Tool 8: Transform column
-@mcp.tool()
-def transform_sheet_column(sheet_url: str, tab_name: str, column_name: str, 
-                         transformation: str, params: Dict = None) -> bool:
-    """Transform values in a column using various operations."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = transform_column(df, column_name, transformation, params)
-    return update_sheet(sheet_url, tab_name, updated_df)
+@router.function("add_row")
+async def add_row(request: MCPRequest) -> Dict[str, Any]:
+    """Add a new row to the Google Sheet."""
+    sheet_url = request.arguments.get("sheet_url")
+    tab_name = request.arguments.get("tab_name")
+    row_data = request.arguments.get("row_data")
+    
+    try:
+        # Open the spreadsheet
+        spreadsheet = sheets_client.client.open_by_url(sheet_url)
+        worksheet = spreadsheet.worksheet(tab_name)
+        
+        # Add the row
+        worksheet.append_row(list(row_data.values()))
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.function("edit_row")
+async def edit_row(request: MCPRequest) -> Dict[str, Any]:
+    """Edit an existing row in the Google Sheet."""
+    sheet_url = request.arguments.get("sheet_url")
+    tab_name = request.arguments.get("tab_name")
+    row_identifier = request.arguments.get("row_identifier")
+    updated_data = request.arguments.get("updated_data")
+    
+    try:
+        # Open the spreadsheet
+        spreadsheet = sheets_client.client.open_by_url(sheet_url)
+        worksheet = spreadsheet.worksheet(tab_name)
+        
+        # Find the row
+        data = worksheet.get_all_records()
+        for idx, row in enumerate(data):
+            if all(row.get(k) == v for k, v in row_identifier.items()):
+                # Update the row
+                cell_list = worksheet.range(f'A{idx+2}:Z{idx+2}')
+                for i, value in enumerate(updated_data.values()):
+                    cell_list[i].value = value
+                worksheet.update_cells(cell_list)
+                return {"status": "success"}
+                
+        return {"status": "error", "message": "Row not found"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.function("delete_row")
+async def delete_row(request: MCPRequest) -> Dict[str, Any]:
+    """Delete a row from the Google Sheet."""
+    sheet_url = request.arguments.get("sheet_url")
+    tab_name = request.arguments.get("tab_name")
+    row_identifier = request.arguments.get("row_identifier")
+    
+    try:
+        # Open the spreadsheet
+        spreadsheet = sheets_client.client.open_by_url(sheet_url)
+        worksheet = spreadsheet.worksheet(tab_name)
+        
+        # Find and delete the row
+        data = worksheet.get_all_records()
+        for idx, row in enumerate(data):
+            if all(row.get(k) == v for k, v in row_identifier.items()):
+                worksheet.delete_rows(idx + 2)  # +2 because of header and 1-based indexing
+                return {"status": "success"}
+                
+        return {"status": "error", "message": "Row not found"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# Add router to app
+app.include_router(router)
+
+def main():
+    """Entry point for the application."""
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
-    mcp.run()
+    main()
