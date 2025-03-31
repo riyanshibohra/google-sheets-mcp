@@ -9,12 +9,14 @@ A Model Context Protocol (MCP) server that provides powerful tools for interacti
 - Advanced column operations (add, rename, transform)
 - Row-level operations (add, edit, delete)
 - JSON-based data exchange
+- MCP integration for AI assistants
 
 ## Prerequisites
 
 - Python 3.8 or higher
 - Google Cloud Platform project with Sheets API enabled
 - Google Sheets API credentials (`credentials.json`)
+- MCP-compatible AI assistant (e.g., Claude)
 
 ## Installation
 
@@ -42,6 +44,69 @@ uv pip install -e .
 3. Enable the Google Sheets API
 4. Create credentials (OAuth 2.0 Client ID)
 5. Download the credentials and save as `credentials.json` in your project root
+
+## MCP Integration
+
+### Setting up with Claude Desktop
+
+Add this configuration to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "sheetcraft": {
+      "command": "python",
+      "args": ["src/server.py"],
+      "env": {
+        "CREDENTIALS_PATH": "/path/to/your/credentials.json"
+      },
+      "disabled": false
+    }
+  }
+}
+```
+
+### Using with uv (Recommended)
+
+```json
+{
+  "mcpServers": {
+    "sheetcraft": {
+      "command": "uv",
+      "args": ["run", "python", "src/server.py"],
+      "env": {
+        "CREDENTIALS_PATH": "/path/to/your/credentials.json"
+      },
+      "disabled": false
+    }
+  }
+}
+```
+
+### Example Prompts for Claude
+
+You can use natural language to interact with your Google Sheets:
+
+1. Basic Operations:
+   ```
+   "Get the data from the 'Budget' tab in my spreadsheet"
+   "Add a new row with name 'John' and age '30' to the 'Employees' sheet"
+   "Update the salary for employee 'John Smith' to 75000"
+   ```
+
+2. Column Operations:
+   ```
+   "Create a new column 'full_name' by combining 'first_name' and 'last_name'"
+   "Calculate the total expenses by adding the 'rent' and 'utilities' columns"
+   "Rename the 'phone_num' column to 'contact_number'"
+   ```
+
+3. Data Transformations:
+   ```
+   "Convert all values in the 'price' column to uppercase"
+   "Format the 'date' column to MM/DD/YYYY"
+   "Calculate the percentage of total for each value in 'sales' column"
+   ```
 
 ## Available Tools
 
