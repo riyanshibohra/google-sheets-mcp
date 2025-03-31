@@ -1,0 +1,34 @@
+[project]
+name = "agent-project"
+version = "0.1.0"
+description = "A Python project using MCP and FastAPI"
+authors = [
+    {name = "Riyanshi Bohra", email = "riyanshibohraa@gmail.com"}
+]
+dependencies = [
+    "mcp",
+    "fastapi",
+    "uvicorn",
+    "pandas",
+    "gspread",
+    "google-auth",
+    "typer",
+]
+requires-python = ">=3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+] 
