@@ -1,47 +1,38 @@
 import pandas as pd
-from typing import Dict, List, Any, Union
-import numpy as np
+from typing import Dict, List
 
 def add_column(df: pd.DataFrame, new_column_name: str, formula: str, reference_columns: List[str], params: Dict = None) -> pd.DataFrame:
-    """
-    Add a new column based on calculations from other columns
+    """Add a new column based on calculations from other columns.
+    
     Args:
         df: Input DataFrame
-        new_column_name: Name of the new column
-        formula: Type of operation to perform ('concat', 'sum', 'multiply', 'divide', 'subtract')
-        reference_columns: List of columns to use in the calculation
-        params: Additional parameters for string operations
-            - separator: str, separator for concat operation (default: ' ')
-            - prefix: str, text to add before the concatenation
-            - suffix: str, text to add after the concatenation
-            - format_string: str, Python format string for advanced formatting
+        new_column_name: Name for the new column
+        formula: Operation type ('concat', 'sum', 'multiply', 'divide', 'subtract')
+        reference_columns: Columns to use in calculation
+        params: Optional parameters for string operations (separator, prefix, suffix, format_string)
     """
     df_copy = df.copy()
     params = params or {}
     
-    # Validate reference columns exist
-    if not all(col in df_copy.columns for col in reference_columns):
-        invalid_cols = [col for col in reference_columns if col not in df_copy.columns]
+    # Validate columns
+    invalid_cols = [col for col in reference_columns if col not in df_copy.columns]
+    if invalid_cols:
         raise ValueError(f"Invalid reference columns: {invalid_cols}")
-    
-    # Check if new column name already exists
     if new_column_name in df_copy.columns:
         raise ValueError(f"Column '{new_column_name}' already exists")
     
-    # Apply the formula
+    # Apply formula
     if formula == 'concat':
-        separator = str(params.get('separator', ' '))  # Ensure separator is a string
+        separator = str(params.get('separator', ' '))
         prefix = str(params.get('prefix', ''))
         suffix = str(params.get('suffix', ''))
         format_string = params.get('format_string', None)
         
         if format_string:
-            # Use Python string formatting if format_string is provided
             df_copy[new_column_name] = df_copy[reference_columns].apply(
                 lambda row: format_string.format(*[str(val) for val in row]), axis=1
             )
         else:
-            # Convert all values to string and join with separator
             values = df_copy[reference_columns].astype(str).apply(
                 lambda row: separator.join(row.values.astype(str)), axis=1
             )
@@ -51,21 +42,20 @@ def add_column(df: pd.DataFrame, new_column_name: str, formula: str, reference_c
         df_copy[new_column_name] = df_copy[reference_columns].sum(axis=1)
     elif formula == 'multiply':
         df_copy[new_column_name] = df_copy[reference_columns].prod(axis=1)
-    elif formula == 'divide':
+    elif formula in ['divide', 'subtract']:
         if len(reference_columns) != 2:
-            raise ValueError("Division requires exactly 2 reference columns")
-        df_copy[new_column_name] = df_copy[reference_columns[0]] / df_copy[reference_columns[1]]
-    elif formula == 'subtract':
-        if len(reference_columns) != 2:
-            raise ValueError("Subtraction requires exactly 2 reference columns")
-        df_copy[new_column_name] = df_copy[reference_columns[0]] - df_copy[reference_columns[1]]
+            raise ValueError(f"{formula.title()} requires exactly 2 reference columns")
+        if formula == 'divide':
+            df_copy[new_column_name] = df_copy[reference_columns[0]] / df_copy[reference_columns[1]]
+        else:
+            df_copy[new_column_name] = df_copy[reference_columns[0]] - df_copy[reference_columns[1]]
     else:
         raise ValueError(f"Unsupported formula: {formula}")
     
     return df_copy
 
 def rename_column(df: pd.DataFrame, old_name: str, new_name: str) -> pd.DataFrame:
-    """Rename a column"""
+    """Rename a column in the DataFrame."""
     df_copy = df.copy()
     
     if old_name not in df_copy.columns:
@@ -76,15 +66,13 @@ def rename_column(df: pd.DataFrame, old_name: str, new_name: str) -> pd.DataFram
     return df_copy.rename(columns={old_name: new_name})
 
 def transform_column(df: pd.DataFrame, column_name: str, transformation: str, params: Dict = None) -> pd.DataFrame:
-    """
-    Transform values in a column
+    """Transform values in a column using various operations.
+    
     Args:
         df: Input DataFrame
-        column_name: Name of the column to transform
-        transformation: Type of transformation ('uppercase', 'lowercase', 'round', 'format_date', 'title_case')
-        params: Additional parameters for the transformation
-            - split_on: str, character to split on for partial title case (default: None)
-            - part_index: int, which part to transform after splitting (default: -1)
+        column_name: Column to transform
+        transformation: Type ('uppercase', 'lowercase', 'title_case', 'round', 'format_date')
+        params: Optional parameters (split_on, part_index, decimals, format)
     """
     df_copy = df.copy()
     params = params or {}
@@ -101,7 +89,6 @@ def transform_column(df: pd.DataFrame, column_name: str, transformation: str, pa
         part_index = params.get('part_index', -1)
         
         if split_on:
-            # Split the string and transform only the specified part
             def title_case_part(text):
                 parts = text.split(split_on)
                 if 0 <= part_index < len(parts):
@@ -109,15 +96,13 @@ def transform_column(df: pd.DataFrame, column_name: str, transformation: str, pa
                 return split_on.join(parts)
             df_copy[column_name] = df_copy[column_name].astype(str).apply(title_case_part)
         else:
-            # Transform the entire string
             df_copy[column_name] = df_copy[column_name].astype(str).str.title()
-            
     elif transformation == 'round':
-        decimals = params.get('decimals', 0)
-        df_copy[column_name] = df_copy[column_name].round(decimals)
+        df_copy[column_name] = df_copy[column_name].round(params.get('decimals', 0))
     elif transformation == 'format_date':
-        date_format = params.get('format', '%Y-%m-%d')
-        df_copy[column_name] = pd.to_datetime(df_copy[column_name]).dt.strftime(date_format)
+        df_copy[column_name] = pd.to_datetime(df_copy[column_name]).dt.strftime(
+            params.get('format', '%Y-%m-%d')
+        )
     else:
         raise ValueError(f"Unsupported transformation: {transformation}")
     

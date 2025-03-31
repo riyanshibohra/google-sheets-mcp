@@ -10,11 +10,10 @@ import pandas as pd
 mcp = FastMCP("SheetCraft")
 
 def decode_json(json_str: str) -> pd.DataFrame:
-    """Helper function to decode JSON string to DataFrame"""
+    """Convert JSON string to DataFrame, handling common encoding issues."""
     try:
         return pd.read_json(json_str, orient='split')
     except:
-        # If direct parsing fails, try cleaning the string
         if isinstance(json_str, str):
             json_str = json_str.replace('\\"', '"').replace('\\\\', '\\')
             if json_str.startswith('"') and json_str.endswith('"'):
@@ -26,29 +25,14 @@ def decode_json(json_str: str) -> pd.DataFrame:
 ## Tool 1: Fetch Google Sheet data
 @mcp.tool()
 def fetch_google_sheet(sheet_url: str, tab_name: str) -> str:
-    """
-    Fetch data from a Google Sheet
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet to fetch
-    Returns:
-        JSON string of the sheet data
-    """
+    """Fetch data from a Google Sheet."""
     df = fetch_sheet(sheet_url, tab_name)
-    return df.to_json(orient='split')  # Only JSON conversion is for API response
+    return df.to_json(orient='split')
 
 ## Tool 2: Update Google Sheet
 @mcp.tool()
 def update_google_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool:
-    """
-    Update the Google Sheet with modified data
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet to update
-        df_json: Modified dataset in JSON format
-    Returns:
-        True if update was successful
-    """
+    """Update a Google Sheet with modified data."""
     df = decode_json(df_json)
     return update_sheet(sheet_url, tab_name, df)
 
@@ -57,15 +41,7 @@ def update_google_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool:
 ## Tool 3: Add new row
 @mcp.tool()
 def add_row(sheet_url: str, tab_name: str, row_data: Dict[str, Any]) -> bool:
-    """
-    Add a new row to the dataset
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet
-        row_data: Dictionary containing the new row data
-    Returns:
-        True if update was successful
-    """
+    """Add a new row to the Google Sheet."""
     df = fetch_sheet(sheet_url, tab_name)
     updated_df = add_data(df, row_data)
     return update_sheet(sheet_url, tab_name, updated_df)
@@ -73,16 +49,7 @@ def add_row(sheet_url: str, tab_name: str, row_data: Dict[str, Any]) -> bool:
 ## Tool 4: Edit row
 @mcp.tool()
 def edit_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any], updated_data: Dict[str, Any]) -> bool:
-    """
-    Edit an existing row in the dataset
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet
-        row_identifier: Dictionary to identify the row (e.g., {"id": 123} or {"name": "John"})
-        updated_data: Dictionary containing fields to update
-    Returns:
-        True if update was successful
-    """
+    """Edit an existing row in the Google Sheet."""
     df = fetch_sheet(sheet_url, tab_name)
     updated_df = edit_data(df, row_identifier, updated_data)
     return update_sheet(sheet_url, tab_name, updated_df)
@@ -90,15 +57,7 @@ def edit_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any], upda
 ## Tool 5: Delete row
 @mcp.tool()
 def delete_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any]) -> bool:
-    """
-    Delete a row from the dataset
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet
-        row_identifier: Dictionary to identify the row to delete
-    Returns:
-        True if update was successful
-    """
+    """Delete a row from the Google Sheet."""
     df = fetch_sheet(sheet_url, tab_name)
     updated_df = delete_data(df, row_identifier)
     return update_sheet(sheet_url, tab_name, updated_df)
@@ -107,22 +66,17 @@ def delete_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any]) ->
 
 ## Tool 6: Add new column
 @mcp.tool()
-def add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formula: str, reference_columns: List[str], params: Dict = None) -> bool:
-    """
-    Add a new column based on calculations from other columns
+def add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formula: str, 
+                    reference_columns: List[str], params: Dict = None) -> bool:
+    """Add a new calculated column to the Google Sheet.
+    
     Args:
         sheet_url: URL of the Google Sheet
         tab_name: Name of the worksheet
         new_column_name: Name for the new column
-        formula: Type of operation ('concat', 'sum', 'multiply', 'divide', 'subtract')
-        reference_columns: List of columns to use in the calculation
-        params: Additional parameters for string operations
-            - separator: str, separator for concat operation (default: ' ')
-            - prefix: str, text to add before the concatenation
-            - suffix: str, text to add after the concatenation
-            - format_string: str, Python format string for advanced formatting
-    Returns:
-        True if update was successful
+        formula: Operation type ('concat', 'sum', 'multiply', 'divide', 'subtract')
+        reference_columns: Columns to use in calculation
+        params: Optional parameters for string operations
     """
     df = fetch_sheet(sheet_url, tab_name)
     updated_df = add_column(df, new_column_name, formula, reference_columns, params)
@@ -131,34 +85,16 @@ def add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formul
 ## Tool 7: Rename column
 @mcp.tool()
 def rename_sheet_column(sheet_url: str, tab_name: str, old_name: str, new_name: str) -> bool:
-    """
-    Rename a column in the dataset
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet
-        old_name: Current name of the column
-        new_name: New name for the column
-    Returns:
-        True if update was successful
-    """
+    """Rename a column in the Google Sheet."""
     df = fetch_sheet(sheet_url, tab_name)
     updated_df = rename_column(df, old_name, new_name)
     return update_sheet(sheet_url, tab_name, updated_df)
 
 ## Tool 8: Transform column
 @mcp.tool()
-def transform_sheet_column(sheet_url: str, tab_name: str, column_name: str, transformation: str, params: Dict = None) -> bool:
-    """
-    Transform values in a column
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet
-        column_name: Name of the column to transform
-        transformation: Type of transformation ('uppercase', 'lowercase', 'round', 'format_date')
-        params: Additional parameters for the transformation
-    Returns:
-        True if update was successful
-    """
+def transform_sheet_column(sheet_url: str, tab_name: str, column_name: str, 
+                         transformation: str, params: Dict = None) -> bool:
+    """Transform values in a column using various operations."""
     df = fetch_sheet(sheet_url, tab_name)
     updated_df = transform_column(df, column_name, transformation, params)
     return update_sheet(sheet_url, tab_name, updated_df)
