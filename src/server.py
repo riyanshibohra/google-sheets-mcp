@@ -4,155 +4,284 @@ from mcp.server.fastmcp import FastMCP
 from tools.fetch_sheet import fetch_sheet, update_sheet
 from tools.data_operations import add_data, edit_data, delete_data
 from tools.column_operations import add_column, rename_column, transform_column
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, AsyncGenerator
+from dataclasses import dataclass
+from contextlib import asynccontextmanager
 import pandas as pd
+import asyncio
+import logging
 import os
+from functools import wraps
+import typer
 
-# Initialize MCP server with proper name and description
-mcp = FastMCP(
-    "SheetCraft",
-    description="A Google Sheets MCP server for data manipulation and analysis"
-)
+# Configure logging
+logger = logging.getLogger(__name__)
 
-def decode_json(json_str: str) -> pd.DataFrame:
-    """Convert JSON string to DataFrame, handling common encoding issues."""
+# Data Models
+@dataclass
+class SheetConfig:
+    """Configuration for Google Sheet operations."""
+    sheet_url: str
+    tab_name: str
+
+@dataclass
+class ColumnOperation:
+    """Configuration for column operations."""
+    name: str
+    formula: Optional[str] = None
+    reference_columns: Optional[List[str]] = None
+    params: Optional[Dict[str, Any]] = None
+
+@dataclass
+class ServerConfig:
+    """Server configuration settings."""
+    host: str = "0.0.0.0"
+    port: int = 8000
+    name: str = "SheetCraft"
+    description: str = "A Google Sheets MCP server for data manipulation and analysis"
+
+# Server Lifecycle Management
+@asynccontextmanager
+async def lifespan(config: ServerConfig) -> AsyncGenerator[None, None]:
+    """Server lifespan context manager."""
+    logger.info(f"Starting {config.name} server...")
     try:
-        return pd.read_json(json_str, orient='split')
-    except:
-        if isinstance(json_str, str):
-            json_str = json_str.replace('\\"', '"').replace('\\\\', '\\')
-            if json_str.startswith('"') and json_str.endswith('"'):
-                json_str = json_str[1:-1]
-        return pd.read_json(json_str, orient='split')
+        yield
+    finally:
+        logger.info(f"Shutting down {config.name} server...")
+        await asyncio.sleep(0.1)
 
-# ----------------------------- Sheet Access Tools ----------------------------- 
-
-## Tool 1: Fetch Google Sheet data
-@mcp.tool(
-    description="Fetch data from a Google Sheet and return as JSON",
-    examples=[
-        "Get data from the 'Budget' tab in my spreadsheet",
-        "Fetch all records from 'Employees' sheet"
-    ]
-)
-def fetch_google_sheet(sheet_url: str, tab_name: str) -> str:
-    """Fetch data from a Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    return df.to_json(orient='split')
-
-## Tool 2: Update Google Sheet
-@mcp.tool(
-    description="Update a Google Sheet with modified data",
-    examples=[
-        "Update the sheet with new data",
-        "Save changes to the spreadsheet"
-    ]
-)
-def update_google_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool:
-    """Update a Google Sheet with modified data."""
-    df = decode_json(df_json)
-    return update_sheet(sheet_url, tab_name, df)
-
-# ----------------------------- Row Operation Tools ----------------------------- 
-
-## Tool 3: Add new row
-@mcp.tool(
-    description="Add a new row to the Google Sheet",
-    examples=[
-        "Add a new employee with name 'John' and age '30'",
-        "Insert a new record in the 'Transactions' sheet"
-    ]
-)
-def add_row(sheet_url: str, tab_name: str, row_data: Dict[str, Any]) -> bool:
-    """Add a new row to the Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = add_data(df, row_data)
-    return update_sheet(sheet_url, tab_name, updated_df)
-
-## Tool 4: Edit row
-@mcp.tool(
-    description="Edit an existing row in the Google Sheet",
-    examples=[
-        "Update John's salary to 75000",
-        "Change the status of order #123 to 'shipped'"
-    ]
-)
-def edit_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any], updated_data: Dict[str, Any]) -> bool:
-    """Edit an existing row in the Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = edit_data(df, row_identifier, updated_data)
-    return update_sheet(sheet_url, tab_name, updated_df)
-
-## Tool 5: Delete row
-@mcp.tool(
-    description="Delete a row from the Google Sheet",
-    examples=[
-        "Remove the employee with ID 'E123'",
-        "Delete the transaction from yesterday"
-    ]
-)
-def delete_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any]) -> bool:
-    """Delete a row from the Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = delete_data(df, row_identifier)
-    return update_sheet(sheet_url, tab_name, updated_df)
-
-# ----------------------------- Column Operation Tools ----------------------------- 
-
-## Tool 6: Add new column
-@mcp.tool(
-    description="Add a new calculated column to the Google Sheet",
-    examples=[
-        "Create a 'full_name' column by combining first and last names",
-        "Add a 'total' column that sums up all expenses"
-    ]
-)
-def add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formula: str, 
-                    reference_columns: List[str], params: Dict = None) -> bool:
-    """Add a new calculated column to the Google Sheet.
+class SheetCraftServer:
+    """Main server class for SheetCraft operations."""
     
-    Args:
-        sheet_url: URL of the Google Sheet
-        tab_name: Name of the worksheet
-        new_column_name: Name for the new column
-        formula: Operation type ('concat', 'sum', 'multiply', 'divide', 'subtract')
-        reference_columns: Columns to use in calculation
-        params: Optional parameters for string operations
-    """
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = add_column(df, new_column_name, formula, reference_columns, params)
-    return update_sheet(sheet_url, tab_name, updated_df)
+    def __init__(self, config: ServerConfig):
+        """Initialize the server with configuration."""
+        self.config = config
+        self.mcp = FastMCP(config.name, description=config.description)
+        self._setup_logging()
+        self.register_tools()
 
-## Tool 7: Rename column
-@mcp.tool(
-    description="Rename a column in the Google Sheet",
-    examples=[
-        "Rename 'phone_num' to 'contact_number'",
-        "Change column 'addr' to 'address'"
-    ]
-)
-def rename_sheet_column(sheet_url: str, tab_name: str, old_name: str, new_name: str) -> bool:
-    """Rename a column in the Google Sheet."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = rename_column(df, old_name, new_name)
-    return update_sheet(sheet_url, tab_name, updated_df)
+    def _setup_logging(self):
+        """Configure logging for the server."""
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
 
-## Tool 8: Transform column
-@mcp.tool(
-    description="Transform values in a column using various operations",
-    examples=[
-        "Convert all prices to uppercase",
-        "Format dates to MM/DD/YYYY"
-    ]
-)
-def transform_sheet_column(sheet_url: str, tab_name: str, column_name: str, 
-                         transformation: str, params: Dict = None) -> bool:
-    """Transform values in a column using various operations."""
-    df = fetch_sheet(sheet_url, tab_name)
-    updated_df = transform_column(df, column_name, transformation, params)
-    return update_sheet(sheet_url, tab_name, updated_df)
+    @staticmethod
+    async def _run_in_thread(func, *args, **kwargs):
+        """Helper method to run synchronous functions in a thread pool."""
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+    @staticmethod
+    async def decode_json(json_str: str) -> pd.DataFrame:
+        """Convert JSON string to DataFrame, handling common encoding issues."""
+        try:
+            return pd.read_json(json_str, orient='split')
+        except Exception as e:
+            logger.error(f"Error decoding JSON: {e}")
+            if isinstance(json_str, str):
+                json_str = json_str.replace('\\"', '"').replace('\\\\', '\\')
+                if json_str.startswith('"') and json_str.endswith('"'):
+                    json_str = json_str[1:-1]
+            return pd.read_json(json_str, orient='split')
+
+    def register_tools(self):
+        """Register all tools with the MCP server."""
+        # Sheet Access Tools
+        self.mcp.tool(
+            description="Fetch data from a Google Sheet and return as JSON"
+        )(self.fetch_google_sheet)
+
+        self.mcp.tool(
+            description="Update a Google Sheet with modified data"
+        )(self.update_google_sheet)
+
+        # Row Operation Tools
+        self.mcp.tool(
+            description="Add a new row to the Google Sheet"
+        )(self.add_row)
+
+        self.mcp.tool(
+            description="Edit an existing row in the Google Sheet"
+        )(self.edit_row)
+
+        self.mcp.tool(
+            description="Delete a row from the Google Sheet"
+        )(self.delete_row)
+
+        # Column Operation Tools
+        self.mcp.tool(
+            description="Add a new calculated column to the Google Sheet"
+        )(self.add_sheet_column)
+
+        self.mcp.tool(
+            description="Rename a column in the Google Sheet"
+        )(self.rename_sheet_column)
+
+        self.mcp.tool(
+            description="Transform values in a column using various operations"
+        )(self.transform_sheet_column)
+
+    async def fetch_google_sheet(self, sheet_url: str, tab_name: str) -> str:
+        """Fetch data from a Google Sheet."""
+        sheet_config = SheetConfig(sheet_url=sheet_url, tab_name=tab_name)
+        logger.info(f"Fetching sheet: {sheet_config.tab_name}")
+        try:
+            df = await self._run_in_thread(fetch_sheet, sheet_config.sheet_url, sheet_config.tab_name)
+            return df.to_json(orient='split')
+        except Exception as e:
+            logger.error(f"Error fetching sheet: {e}")
+            raise
+
+    async def update_google_sheet(self, sheet_url: str, tab_name: str, df_json: str) -> bool:
+        """Update a Google Sheet with modified data."""
+        sheet_config = SheetConfig(sheet_url=sheet_url, tab_name=tab_name)
+        logger.info(f"Updating sheet: {sheet_config.tab_name}")
+        try:
+            df = await self.decode_json(df_json)
+            return await self._run_in_thread(update_sheet, sheet_config.sheet_url, sheet_config.tab_name, df)
+        except Exception as e:
+            logger.error(f"Error updating sheet: {e}")
+            raise
+
+    async def add_row(self, sheet_url: str, tab_name: str, row_data: Dict[str, Any]) -> bool:
+        """Add a new row to the Google Sheet."""
+        sheet_config = SheetConfig(sheet_url=sheet_url, tab_name=tab_name)
+        logger.info(f"Adding row to sheet: {sheet_config.tab_name}")
+        try:
+            df = await self._run_in_thread(fetch_sheet, sheet_config.sheet_url, sheet_config.tab_name)
+            updated_df = await self._run_in_thread(add_data, df, row_data)
+            return await self._run_in_thread(update_sheet, sheet_config.sheet_url, sheet_config.tab_name, updated_df)
+        except Exception as e:
+            logger.error(f"Error adding row: {e}")
+            raise
+
+    async def edit_row(self, sheet_url: str, tab_name: str, row_identifier: Dict[str, Any], updated_data: Dict[str, Any]) -> bool:
+        """Edit an existing row in the Google Sheet."""
+        sheet_config = SheetConfig(sheet_url=sheet_url, tab_name=tab_name)
+        logger.info(f"Editing row in sheet: {sheet_config.tab_name}")
+        try:
+            df = await self._run_in_thread(fetch_sheet, sheet_config.sheet_url, sheet_config.tab_name)
+            updated_df = await self._run_in_thread(edit_data, df, row_identifier, updated_data)
+            return await self._run_in_thread(update_sheet, sheet_config.sheet_url, sheet_config.tab_name, updated_df)
+        except Exception as e:
+            logger.error(f"Error editing row: {e}")
+            raise
+
+    async def delete_row(self, sheet_url: str, tab_name: str, row_identifier: Dict[str, Any]) -> bool:
+        """Delete a row from the Google Sheet."""
+        sheet_config = SheetConfig(sheet_url=sheet_url, tab_name=tab_name)
+        logger.info(f"Deleting row from sheet: {sheet_config.tab_name}")
+        try:
+            df = await self._run_in_thread(fetch_sheet, sheet_config.sheet_url, sheet_config.tab_name)
+            updated_df = await self._run_in_thread(delete_data, df, row_identifier)
+            return await self._run_in_thread(update_sheet, sheet_config.sheet_url, sheet_config.tab_name, updated_df)
+        except Exception as e:
+            logger.error(f"Error deleting row: {e}")
+            raise
+
+    async def add_sheet_column(
+        self, 
+        sheet_url: str, 
+        tab_name: str, 
+        new_column_name: str, 
+        formula: str,
+        reference_columns: List[str], 
+        params: Optional[Dict] = None
+    ) -> bool:
+        """Add a new calculated column to the Google Sheet."""
+        sheet_config = SheetConfig(sheet_url=sheet_url, tab_name=tab_name)
+        column_op = ColumnOperation(
+            name=new_column_name,
+            formula=formula,
+            reference_columns=reference_columns,
+            params=params
+        )
+        logger.info(f"Adding column {column_op.name} to sheet: {sheet_config.tab_name}")
+        try:
+            df = await self._run_in_thread(fetch_sheet, sheet_config.sheet_url, sheet_config.tab_name)
+            updated_df = await self._run_in_thread(
+                add_column, 
+                df, 
+                column_op.name, 
+                column_op.formula, 
+                column_op.reference_columns, 
+                column_op.params
+            )
+            return await self._run_in_thread(update_sheet, sheet_config.sheet_url, sheet_config.tab_name, updated_df)
+        except Exception as e:
+            logger.error(f"Error adding column: {e}")
+            raise
+
+    async def rename_sheet_column(self, sheet_url: str, tab_name: str, old_name: str, new_name: str) -> bool:
+        """Rename a column in the Google Sheet."""
+        sheet_config = SheetConfig(sheet_url=sheet_url, tab_name=tab_name)
+        logger.info(f"Renaming column from {old_name} to {new_name} in sheet: {sheet_config.tab_name}")
+        try:
+            df = await self._run_in_thread(fetch_sheet, sheet_config.sheet_url, sheet_config.tab_name)
+            updated_df = await self._run_in_thread(rename_column, df, old_name, new_name)
+            return await self._run_in_thread(update_sheet, sheet_config.sheet_url, sheet_config.tab_name, updated_df)
+        except Exception as e:
+            logger.error(f"Error renaming column: {e}")
+            raise
+
+    async def transform_sheet_column(
+        self, 
+        sheet_url: str, 
+        tab_name: str, 
+        column_name: str,
+        transformation: str, 
+        params: Optional[Dict] = None
+    ) -> bool:
+        """Transform values in a column using various operations."""
+        sheet_config = SheetConfig(sheet_url=sheet_url, tab_name=tab_name)
+        column_op = ColumnOperation(name=column_name, params=params)
+        logger.info(f"Transforming column {column_op.name} in sheet: {sheet_config.tab_name}")
+        try:
+            df = await self._run_in_thread(fetch_sheet, sheet_config.sheet_url, sheet_config.tab_name)
+            updated_df = await self._run_in_thread(
+                transform_column, 
+                df, 
+                column_op.name, 
+                transformation, 
+                column_op.params
+            )
+            return await self._run_in_thread(update_sheet, sheet_config.sheet_url, sheet_config.tab_name, updated_df)
+        except Exception as e:
+            logger.error(f"Error transforming column: {e}")
+            raise
+
+    def start(self):
+        """Start the server."""
+        # Set port through environment variable before running
+        os.environ["PORT"] = str(self.config.port)
+        logger.info(f"Starting {self.config.name} server on port {self.config.port}...")
+        self.mcp.run()
+
+app = typer.Typer()
+
+@app.command()
+def start(
+    port: int = typer.Option(8000, help="Port to run the server on"),
+    name: str = typer.Option("SheetCraft", help="Name of the server"),
+    description: str = typer.Option(
+        "A Google Sheets MCP server for data manipulation and analysis",
+        help="Description of the server"
+    )
+):
+    """Start the SheetCraft MCP server."""
+    config = ServerConfig(
+        port=port,
+        name=name,
+        description=description
+    )
+    server = SheetCraftServer(config)
+    server.start()
+
+def main():
+    """Entry point for the CLI."""
+    app()
 
 if __name__ == "__main__":
-    # Set default port for MCP server
-    port = int(os.environ.get("PORT", 8000))
-    mcp.run(host="0.0.0.0", port=port)
+    main()
