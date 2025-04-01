@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-google-sheets-mcp = "src.server:main"
+google-sheets-mcp = "mcp_google_sheets.server:main"
 
 [build-system]
 requires = ["hatchling"]
