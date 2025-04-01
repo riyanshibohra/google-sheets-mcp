@@ -2,9 +2,6 @@
 name = "google-sheets-mcp"
 version = "0.1.0"
 description = "A Google Sheets MCP server for data manipulation and analysis"
-authors = [
-    {name = "Your Name", email = "your.email@example.com"},
-]
 dependencies = [
     "mcp>=0.1.0",
     "fastapi>=0.68.0",
