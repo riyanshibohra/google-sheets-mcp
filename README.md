@@ -1,4 +1,4 @@
-# SheetCraft MCP Server
+# MCP Server - Google Sheets
 
 A Model Context Protocol (MCP) server that provides powerful tools for interacting with Google Sheets. Built with pandas for efficient data manipulation and gspread for Google Sheets integration.
 
