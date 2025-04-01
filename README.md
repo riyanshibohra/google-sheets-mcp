@@ -1,203 +1,101 @@
-# MCP Server - Google Sheets
+# SheetCraft: Google Sheets MCP Server
 
-A Model Context Protocol (MCP) server that provides powerful tools for interacting with Google Sheets. Built with pandas for efficient data manipulation and gspread for Google Sheets integration.
+A Model Context Protocol server for manipulating and analyzing Google Sheets data.
 
 ## Features
 
-- Pandas-based data manipulation for efficient operations
-- Complete CRUD operations for Google Sheets
-- Advanced column operations (add, rename, transform)
-- Row-level operations (add, edit, delete)
-- JSON-based data exchange
-- MCP integration for AI assistants
-
-## Prerequisites
-
-- Python 3.8 or higher
-- Google Cloud Platform project with Sheets API enabled
-- Google Sheets API credentials (`credentials.json`)
-- MCP-compatible AI assistant (e.g., Claude)
+- Fetch and update sheet data
+- Add, edit, and delete rows
+- Add, rename, and transform columns
+- Proper async implementation for better performance
+- Full integration with Claude Desktop
 
 ## Installation
 
-1. Clone the repository:
+### Using uvx (recommended)
+
 ```bash
-git clone https://github.com/yourusername/agent-project.git
-cd agent-project
+uvx sheetcraft
 ```
 
-2. Set up your virtual environment using uv:
+### For Development
+
+1. Clone the repository:
+```bash
+git clone <your-repo-url>
+cd sheetcraft
+```
+
+2. Create a virtual environment with uv:
 ```bash
 uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # On Unix/macOS
 ```
 
 3. Install dependencies:
 ```bash
-uv pip install -e .
+uv pip install -r requirements.txt
 ```
 
-## Google Sheets Setup
+## Usage with Claude Desktop
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project or select an existing one
-3. Enable the Google Sheets API
-4. Create credentials (OAuth 2.0 Client ID)
-5. Download the credentials and save as `credentials.json` in your project root
-
-## MCP Integration
-
-### Setting up with Claude Desktop
-
-Add this configuration to your `claude_desktop_config.json`:
+Add this to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "sheetcraft": {
-      "command": "python",
-      "args": ["src/server.py"],
+      "command": "uvx",
+      "args": ["sheetcraft"],
       "env": {
-        "CREDENTIALS_PATH": "/path/to/your/credentials.json"
-      },
-      "disabled": false
+        "SERVICE_ACCOUNT_PATH": "/path/to/your/service-account-key.json",
+        "DRIVE_FOLDER_ID": "your_shared_folder_id_here"
+      }
     }
   }
 }
 ```
 
-### Using with uv (Recommended)
+### Alternative Authentication Method
+
+For OAuth authentication, use this configuration instead:
 
 ```json
 {
   "mcpServers": {
     "sheetcraft": {
-      "command": "uv",
-      "args": ["run", "python", "src/server.py"],
+      "command": "uvx",
+      "args": ["sheetcraft"],
       "env": {
-        "CREDENTIALS_PATH": "/path/to/your/credentials.json"
-      },
-      "disabled": false
+        "CREDENTIALS_PATH": "/path/to/your/credentials.json",
+        "TOKEN_PATH": "/path/to/your/token.json"
+      }
     }
   }
 }
 ```
 
-### Example Prompts for Claude
+## Example Prompts for Claude
 
-You can use natural language to interact with your Google Sheets:
+Once connected, you can use prompts like:
 
-1. Basic Operations:
-   ```
-   "Get the data from the 'Budget' tab in my spreadsheet"
-   "Add a new row with name 'John' and age '30' to the 'Employees' sheet"
-   "Update the salary for employee 'John Smith' to 75000"
-   ```
+- "Fetch data from Sheet1 in my spreadsheet"
+- "Add a new row with name 'John' and age '30'"
+- "Update the 'status' column for row with ID '123' to 'completed'"
+- "Add a new calculated column 'full_name' by combining first and last name"
+- "Delete the row where email is 'john@example.com'"
+- "Transform the 'date' column to MM/DD/YYYY format"
 
-2. Column Operations:
-   ```
-   "Create a new column 'full_name' by combining 'first_name' and 'last_name'"
-   "Calculate the total expenses by adding the 'rent' and 'utilities' columns"
-   "Rename the 'phone_num' column to 'contact_number'"
-   ```
+## Development
 
-3. Data Transformations:
-   ```
-   "Convert all values in the 'price' column to uppercase"
-   "Format the 'date' column to MM/DD/YYYY"
-   "Calculate the percentage of total for each value in 'sales' column"
-   ```
-
-## Available Tools
-
-### Sheet Access Tools
-1. `fetch_google_sheet(sheet_url: str, tab_name: str) -> str`
-   - Fetches data from a Google Sheet
-   - Returns JSON string of sheet data
-
-2. `update_google_sheet(sheet_url: str, tab_name: str, df_json: str) -> bool`
-   - Updates sheet with provided data
-   - Data should be in JSON format
-
-### Row Operations
-3. `add_row(sheet_url: str, tab_name: str, row_data: Dict[str, Any]) -> bool`
-   - Adds a new row to the sheet
-   - row_data: Dictionary of column:value pairs
-
-4. `edit_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any], updated_data: Dict[str, Any]) -> bool`
-   - Edits an existing row
-   - row_identifier: Dictionary to identify the row
-   - updated_data: New values for the row
-
-5. `delete_row(sheet_url: str, tab_name: str, row_identifier: Dict[str, Any]) -> bool`
-   - Deletes a row from the sheet
-   - row_identifier: Dictionary to identify the row
-
-### Column Operations
-6. `add_sheet_column(sheet_url: str, tab_name: str, new_column_name: str, formula: str, reference_columns: List[str], params: Dict = None) -> bool`
-   - Adds a calculated column
-   - Supported formulas: 'concat', 'sum', 'multiply', 'divide', 'subtract'
-
-7. `rename_sheet_column(sheet_url: str, tab_name: str, old_name: str, new_name: str) -> bool`
-   - Renames an existing column
-
-8. `transform_sheet_column(sheet_url: str, tab_name: str, column_name: str, transformation: str, params: Dict = None) -> bool`
-   - Applies transformations to column values
-
-## Usage Examples
-
-```python
-# Fetch data from a sheet
-result = fetch_google_sheet(
-    "https://docs.google.com/spreadsheets/d/your-sheet-id",
-    "Sheet1"
-)
-
-# Add a new row
-add_row(
-    "https://docs.google.com/spreadsheets/d/your-sheet-id",
-    "Sheet1",
-    {"name": "John", "age": 30, "city": "New York"}
-)
-
-# Add a calculated column
-add_sheet_column(
-    "https://docs.google.com/spreadsheets/d/your-sheet-id",
-    "Sheet1",
-    "full_name",
-    "concat",
-    ["first_name", "last_name"],
-    {"separator": " "}
-)
-```
-
-## Running in Development
+To run the server locally:
 
 ```bash
-# Start the MCP server
 python src/server.py
 ```
 
-## Docker Support
-
-Build and run with Docker:
-
-```bash
-# Build the image
-docker build -t sheetcraft .
-
-# Run the container
-docker run -p 8000:8000 -v $(pwd)/credentials.json:/app/credentials.json sheetcraft
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
+The server will start on port 8000 by default. You can change this by setting the `PORT` environment variable.
 
 ## License
 
-MIT License
+MIT License - See LICENSE file for details
