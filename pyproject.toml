@@ -1,5 +1,5 @@
 [project]
-name = "sheetcraft"
+name = "google-sheets-mcp"
 version = "0.1.0"
 description = "A Google Sheets MCP server for data manipulation and analysis"
 authors = [
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-sheetcraft = "src.server:main"
+google-sheets-mcp = "src.server:main"
 
 [build-system]
 requires = ["hatchling"]
