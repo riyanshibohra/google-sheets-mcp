@@ -37,7 +37,7 @@ class ServerConfig:
     """Server configuration settings."""
     host: str = "0.0.0.0"
     port: int = 8000
-    name: str = "SheetCraft"
+    name: str = "Google Sheets MCP"
     description: str = "A Google Sheets MCP server for data manipulation and analysis"
 
 # Server Lifecycle Management
@@ -51,8 +51,8 @@ async def lifespan(config: ServerConfig) -> AsyncGenerator[None, None]:
         logger.info(f"Shutting down {config.name} server...")
         await asyncio.sleep(0.1)
 
-class SheetCraftServer:
-    """Main server class for SheetCraft operations."""
+class GoogleSheetsMCPServer:
+    """Main server class for Google Sheets MCP operations."""
     
     def __init__(self, config: ServerConfig):
         """Initialize the server with configuration."""
@@ -264,19 +264,19 @@ app = typer.Typer()
 @app.command()
 def start(
     port: int = typer.Option(8000, help="Port to run the server on"),
-    name: str = typer.Option("SheetCraft", help="Name of the server"),
+    name: str = typer.Option("Google Sheets MCP", help="Name of the server"),
     description: str = typer.Option(
         "A Google Sheets MCP server for data manipulation and analysis",
         help="Description of the server"
     )
 ):
-    """Start the SheetCraft MCP server."""
+    """Start the Google Sheets MCP server."""
     config = ServerConfig(
         port=port,
         name=name,
         description=description
     )
-    server = SheetCraftServer(config)
+    server = GoogleSheetsMCPServer(config)
     server.start()
 
 def main():
