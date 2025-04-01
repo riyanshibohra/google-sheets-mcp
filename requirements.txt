@@ -1,7 +1,9 @@
-mcp
-fastapi
-uvicorn
-pandas
-gspread
-google-auth
-typer
+mcp>=0.1.0
+fastapi>=0.68.0
+uvicorn[standard]>=0.15.0
+pandas>=1.3.0
+gspread>=5.0.0
+google-auth>=2.3.0
+typer>=0.4.0
+aiohttp>=3.8.0
+asyncio>=3.4.3
