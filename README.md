@@ -10,6 +10,7 @@ A Model Context Protocol server for manipulating and analyzing Google Sheets dat
 - Proper async implementation for better performance
 - Full integration with Claude Desktop
 
+
 ## Installation
 
 ### Using uvx (recommended)
