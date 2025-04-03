@@ -8,7 +8,7 @@ A Model Context Protocol server for manipulating and analyzing Google Sheets dat
 - Add, edit, and delete rows
 - Add, rename, and transform columns
 - Proper async implementation for better performance
-- ntegration with Claude Desktop
+- Integration with Claude Desktop
 
 
 ## Installation
