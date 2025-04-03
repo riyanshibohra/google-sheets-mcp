@@ -9,7 +9,6 @@ A Model Context Protocol server for manipulating and analyzing Google Sheets dat
 - Add, rename, and transform columns
 - Proper async implementation for better performance
 
-
 ## Installation
 
 ### Using uvx (recommended)
