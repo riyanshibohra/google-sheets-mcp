@@ -23,7 +23,7 @@ uvx google-sheets-mcp
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/riyanshibohra/google-sheets-mcp
 cd google-sheets-mcp
 ```
 
